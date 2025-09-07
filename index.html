@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuralChat Pro - Advanced RAG System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap');
+        
+        :root {
+            --neon-blue: #00d4ff;
+            --neon-purple: #8b5cf6;
+            --neon-pink: #f472b6;
+            --neon-green: #10b981;
+            --neon-orange: #f59e0b;
+            --dark-bg: #0a0a0f;
+            --card-bg: rgba(15, 23, 42, 0.8);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-blue) transparent;
+        }
+
+        *::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            border-radius: 3px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .title-font {
+            font-family: 'Orbitron', monospace;
+        }
+
+        .glass-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .neon-border {
+            border: 2px solid transparent;
+            background: linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+                        linear-gradient(45deg, var(--neon-blue), var(--neon-purple)) border-box;
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3),
+                        0 0 40px rgba(139, 92, 246, 0.2),
+                        inset 0 0 20px rgba(255, 255, 255, 0.05);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(0, 212, 255, 0.3);
+            background: rgba(0, 212, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            transform: rotate(45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+        }
+
+        .upload-area.dragover {
+            border-color: var(--neon-blue);
+            background: rgba(0, 212, 255, 0.1);
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.4);
+        }
+
+        .upload-area.dragover::before {
+            opacity: 1;
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+
+        .chunk-highlight {
+            background: linear-gradient(120deg, rgba(0, 212, 255, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 8px 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chunk-highlight::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: slide 2s infinite;
+        }
+
+        @keyframes slide {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .typing-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            animation: typing 1.4s infinite ease-in-out;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .typing-indicator:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator:nth-child(2) { animation-delay: -0.16s; background: var(--neon-purple); box-shadow: 0 0 10px var(--neon-purple); }
+        .typing-indicator:nth-child(3) { background: var(--neon-pink); box-shadow: 0 0 10px var(--neon-pink); }
+
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1.2); opacity: 1; }
+        }
+
+        .floating-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: var(--neon-blue);
+            border-radius: 50%;
+            animation: float 20s infinite linear;
+            box-shadow: 0 0 6px var(--neon-blue);
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(100vh) translateX(0px);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        .model-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .model-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.2);
+        }
+
+        .model-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .model-card:hover::after {
+            left: 100%;
+        }
+
+        .pulse-ring {
+            animation: pulse-ring 2s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(0.8);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2.4);
+                opacity: 0;
+            }
+        }
+
+        .connection-line {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .connection-line::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+            transform: translateY(-50%);
+            animation: flow 3s infinite;
+        }
+
+        @keyframes flow {
+            0% { transform: translateX(-100%) translateY(-50%); }
+            100% { transform: translateX(100%) translateY(-50%); }
+        }
+
+        .hologram-text {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: hologram 3s ease-in-out infinite;
+        }
+
+        @keyframes hologram {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(180deg); }
+        }
+
+        .btn-neon {
+            position: relative;
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            border: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .btn-neon::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-neon:hover::before {
+            left: 100%;
+        }
+
+        .btn-neon:hover {
+            box-shadow: 0 0 20px var(--neon-blue), 0 0 40px var(--neon-purple);
+            transform: translateY(-2px);
+        }
+
+        .status-indicator {
+            position: relative;
+        }
+
+        .status-indicator::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            border: 2px solid var(--neon-blue);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 2s infinite;
+        }
+
+        .message-user {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message-assistant {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message-user::before,
+        .message-assistant::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: translateX(-100%);
+            animation: message-shine 3s infinite;
+        }
+
+        @keyframes message-shine {
+            0% { transform: translateX(-100%); }
+            50% { transform: translateX(100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .tab-active {
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            color: white;
+        }
+
+        .tab-inactive {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--neon-blue);
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            height: 4px;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(139, 92, 246, 0.1));
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .neural-network-node {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .sidebar-collapsed {
+            transform: translateX(-100%);
+        }
+
+        .sidebar-expanded {
+            transform: translateX(0);
+        }
+
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <!-- Floating Particles Background -->
+    <div class="floating-particles" id="particles"></div>
+    
+    <!-- Main Container -->
+    <div class="flex h-screen relative z-10">
+        <!-- Sidebar -->
+        <div id="sidebar" class="w-80 glass-card neon-border transition-transform duration-300 sidebar-expanded overflow-y-auto">
+            <!-- Header -->
+            <div class="p-6 border-b border-cyan-400/30">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-2xl font-black title-font hologram-text">🧠 NEURALCHAT PRO</h1>
+                    <button onclick="toggleSidebar()" class="p-2 glass-card rounded-lg hover:bg-cyan-400/20 transition-colors">
+                        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="connection-line w-full h-1 mb-4"></div>
+                <div class="flex items-center space-x-2">
+                    <div class="status-indicator w-3 h-3 bg-cyan-400 rounded-full"></div>
+                    <span class="text-cyan-400 text-sm font-mono">SYSTEM ONLINE</span>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="p-4">
+                <div class="flex space-x-1 mb-4">
+                    <button onclick="switchTab('documents')" id="tab-documents" class="flex-1 px-3 py-2 text-xs font-bold rounded-lg tab-active transition-all">
+                        📄 DOCS
+                    </button>
+                    <button onclick="switchTab('models')" id="tab-models" class="flex-1 px-3 py-2 text-xs font-bold rounded-lg tab-inactive transition-all">
+                        🤖 MODELS
+                    </button>
+                    <button onclick="switchTab('analytics')" id="tab-analytics" class="flex-1 px-3 py-2 text-xs font-bold rounded-lg tab-inactive transition-all">
+                        📊 ANALYTICS
+                    </button>
+                    <button onclick="switchTab('settings')" id="tab-settings" class="flex-1 px-3 py-2 text-xs font-bold rounded-lg tab-inactive transition-all">
+                        ⚙ SETTINGS
+                    </button>
+                </div>
+
+                <!-- Documents Tab -->
+                <div id="content-documents" class="tab-content">
+                    <!-- Document Upload -->
+                    <div class="mb-6">
+                        <div id="uploadArea" class="upload-area rounded-2xl p-6 text-center cursor-pointer">
+                            <div id="uploadContent">
+                                <svg class="mx-auto h-12 w-12 text-cyan-400 mb-3" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <p class="text-white font-medium text-sm mb-1">Drop files or click</p>
+                                <p class="text-xs text-cyan-300 font-mono">PDF • MD • HTML • TXT • JSON • CSV</p>
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" class="hidden" accept=".pdf,.md,.html,.txt,.json,.csv" multiple>
+                    </div>
+
+                    <!-- Processing Status -->
+                    <div id="processingStatus" class="hidden mb-4">
+                        <div class="glass-card border border-cyan-400 rounded-xl p-3">
+                            <div class="flex items-center">
+                                <div class="animate-spin rounded-full h-4 w-4 border-2 border-cyan-400 border-t-transparent mr-2"></div>
+                                <span class="text-cyan-300 text-xs font-mono">PROCESSING...</span>
+                            </div>
+                            <div class="mt-2 bg-black/30 rounded-full h-2">
+                                <div id="progressBar" class="progress-bar w-0"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document List -->
+                    <div id="documentList" class="space-y-2 mb-6">
+                        <!-- Documents will be listed here -->
+                    </div>
+
+                    <!-- Sample Documents -->
+                    <div class="border-t border-cyan-400/30 pt-4">
+                        <h3 class="text-xs font-bold text-white title-font mb-3">📖 SAMPLE DATASETS</h3>
+                        <div class="space-y-2">
+                            <button onclick="loadSampleDocument('ml-guide')" class="model-card w-full text-left p-3 glass-card border border-cyan-400/30 rounded-xl">
+                                <div class="font-bold text-xs text-white mb-1">Machine Learning Guide</div>
+                                <div class="text-xs text-cyan-300 font-mono">Neural networks • Algorithms • Outliers</div>
+                            </button>
+                            <button onclick="loadSampleDocument('web-dev')" class="model-card w-full text-left p-3 glass-card border border-purple-400/30 rounded-xl">
+                                <div class="font-bold text-xs text-white mb-1">Web Development</div>
+                                <div class="text-xs text-purple-300 font-mono">Frontend • Backend • RAG Systems</div>
+                            </button>
+                            <button onclick="loadSampleDocument('data-science')" class="model-card w-full text-left p-3 glass-card border border-green-400/30 rounded-xl">
+                                <div class="font-bold text-xs text-white mb-1">Data Science Handbook</div>
+                                <div class="text-xs text-green-300 font-mono">Statistics • Visualization • Analysis</div>
+                            </button>
+                            <button onclick="loadSampleDocument('cybersecurity')" class="model-card w-full text-left p-3 glass-card border border-pink-400/30 rounded-xl">
+                                <div class="font-bold text-xs text-white mb-1">Cybersecurity Guide</div>
+                                <div class="text-xs text-pink-300 font-mono">Security • Encryption • Threats</div>
+                            </button>
+                            <button onclick="loadSampleDocument('blockchain')" class="model-card w-full text-left p-3 glass-card border border-orange-400/30 rounded-xl">
+                                <div class="font-bold text-xs text-white mb-1">Blockchain Technology</div>
+                                <div class="text-xs text-orange-300 font-mono">Crypto • DeFi • Smart Contracts</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Models Tab -->
+                <div id="content-models" class="tab-content hidden">
+                    <!-- LLM Models -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-cyan-300 mb-3 font-mono">🧠 LANGUAGE MODELS</h3>
+                        <select id="llmModel" class="w-full text-xs bg-black/50 border border-cyan-400/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400">
+                            <option value="gpt-4">GPT-4 (OpenAI)</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo (OpenAI)</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (OpenAI)</option>
+                            <option value="claude-3-opus">Claude 3 Opus (Anthropic)</option>
+                            <option value="claude-3-sonnet">Claude 3 Sonnet (Anthropic)</option>
+                            <option value="claude-3-haiku">Claude 3 Haiku (Anthropic)</option>
+                            <option value="gemini-pro">Gemini Pro (Google)</option>
+                            <option value="gemini-ultra">Gemini Ultra (Google)</option>
+                            <option value="llama-2-70b">Llama 2 70B (Meta)</option>
+                            <option value="llama-2-13b">Llama 2 13B (Meta)</option>
+                            <option value="mistral-large">Mistral Large</option>
+                            <option value="mistral-medium">Mistral Medium</option>
+                            <option value="cohere-command">Command (Cohere)</option>
+                            <option value="palm-2">PaLM 2 (Google)</option>
+                        </select>
+                    </div>
+
+                    <!-- Embedding Models -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-purple-300 mb-3 font-mono">🔗 EMBEDDING MODELS</h3>
+                        <select id="embeddingModel" class="w-full text-xs bg-black/50 border border-purple-400/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                            <option value="text-embedding-3-large">text-embedding-3-large (OpenAI)</option>
+                            <option value="text-embedding-3-small">text-embedding-3-small (OpenAI)</option>
+                            <option value="text-embedding-ada-002">text-embedding-ada-002 (OpenAI)</option>
+                            <option value="sentence-transformers">all-MiniLM-L6-v2 (ST)</option>
+                            <option value="sentence-transformers-large">all-mpnet-base-v2 (ST)</option>
+                            <option value="cohere-embed">Embed v3 (Cohere)</option>
+                            <option value="cohere-embed-multilingual">Embed Multilingual (Cohere)</option>
+                            <option value="voyage-large">Voyage Large</option>
+                            <option value="voyage-code">Voyage Code</option>
+                            <option value="e5-large">E5-Large (Microsoft)</option>
+                            <option value="bge-large">BGE-Large (BAAI)</option>
+                        </select>
+                    </div>
+
+                    <!-- Vector Databases -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-pink-300 mb-3 font-mono">💾 VECTOR DATABASES</h3>
+                        <select id="vectorDb" class="w-full text-xs bg-black/50 border border-pink-400/50 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-pink-400">
+                            <option value="faiss">FAISS (Local)</option>
+                            <option value="chromadb">ChromaDB</option>
+                            <option value="pinecone">Pinecone</option>
+                            <option value="weaviate">Weaviate</option>
+                            <option value="qdrant">Qdrant</option>
+                            <option value="milvus">Milvus</option>
+                            <option value="redis">Redis Vector</option>
+                            <option value="elasticsearch">Elasticsearch</option>
+                            <option value="pgvector">pgvector (PostgreSQL)</option>
+                        </select>
+                    </div>
+
+                    <!-- Model Configuration Display -->
+                    <div id="modelInfo" class="glass-card border border-cyan-400/30 rounded-xl p-4 neon-glow">
+                        <div class="text-xs text-cyan-300 font-mono">
+                            <div class="font-bold mb-2 text-white">ACTIVE CONFIGURATION:</div>
+                            <div class="space-y-1">
+                                <div>🧠 LLM: <span class="text-cyan-400">GPT-4</span></div>
+                                <div>🔗 Embedding: <span class="text-purple-400">OpenAI Large</span></div>
+                                <div>💾 Vector DB: <span class="text-pink-400">FAISS</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Performance Metrics -->
+                    <div class="mt-4">
+                        <h3 class="text-xs font-bold text-green-300 mb-3 font-mono">📈 PERFORMANCE METRICS</h3>
+                        <div class="space-y-2">
+                            <div class="metric-card rounded-lg p-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-white">Response Time</span>
+                                    <span class="text-xs text-green-400 font-mono">2.3s</span>
+                                </div>
+                                <div class="mt-1 bg-black/30 rounded-full h-1">
+                                    <div class="bg-green-400 h-1 rounded-full w-3/4"></div>
+                                </div>
+                            </div>
+                            <div class="metric-card rounded-lg p-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-white">Accuracy</span>
+                                    <span class="text-xs text-cyan-400 font-mono">94.2%</span>
+                                </div>
+                                <div class="mt-1 bg-black/30 rounded-full h-1">
+                                    <div class="bg-cyan-400 h-1 rounded-full w-11/12"></div>
+                                </div>
+                            </div>
+                            <div class="metric-card rounded-lg p-3">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-white">Relevance</span>
+                                    <span class="text-xs text-purple-400 font-mono">91.8%</span>
+                                </div>
+                                <div class="mt-1 bg-black/30 rounded-full h-1">
+                                    <div class="bg-purple-400 h-1 rounded-full w-5/6"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div id="content-analytics" class="tab-content hidden">
+                    <!-- Query Analytics -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-cyan-300 mb-3 font-mono">📊 QUERY ANALYTICS</h3>
+                        <div class="glass-card border border-cyan-400/30 rounded-xl p-4">
+                            <canvas id="queryChart" width="200" height="120"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Document Statistics -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-purple-300 mb-3 font-mono">📈 DOCUMENT STATS</h3>
+                        <div class="space-y-3">
+                            <div class="glass-card border border-purple-400/30 rounded-lg p-3">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-xs text-white">Total Documents</span>
+                                    <span class="text-xs text-purple-400 font-mono" id="totalDocs">0</span>
+                                </div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-xs text-white">Total Chunks</span>
+                                    <span class="text-xs text-cyan-400 font-mono" id="totalChunks">0</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-white">Avg Chunk Size</span>
+                                    <span class="text-xs text-green-400 font-mono" id="avgChunkSize">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Queries -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-green-300 mb-3 font-mono">🕒 RECENT QUERIES</h3>
+                        <div id="recentQueries" class="space-y-2">
+                            <div class="text-xs text-gray-400 text-center py-4">No queries yet</div>
+                        </div>
+                    </div>
+
+                    <!-- System Health -->
+                    <div>
+                        <h3 class="text-xs font-bold text-orange-300 mb-3 font-mono">🔧 SYSTEM HEALTH</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between p-2 glass-card rounded-lg">
+                                <span class="text-xs text-white">Memory Usage</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-16 bg-black/30 rounded-full h-2">
+                                        <div class="bg-green-400 h-2 rounded-full w-3/5"></div>
+                                    </div>
+                                    <span class="text-xs text-green-400 font-mono">60%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between p-2 glass-card rounded-lg">
+                                <span class="text-xs text-white">API Latency</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-16 bg-black/30 rounded-full h-2">
+                                        <div class="bg-cyan-400 h-2 rounded-full w-1/4"></div>
+                                    </div>
+                                    <span class="text-xs text-cyan-400 font-mono">120ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="content-settings" class="tab-content hidden">
+                    <!-- RAG Parameters -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-cyan-300 mb-3 font-mono">⚙ RAG PARAMETERS</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs text-white mb-1">Chunk Size</label>
+                                <input type="range" id="chunkSize" min="100" max="2000" value="500" class="w-full">
+                                <div class="flex justify-between text-xs text-cyan-400 mt-1">
+                                    <span>100</span>
+                                    <span id="chunkSizeValue">500</span>
+                                    <span>2000</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-white mb-1">Chunk Overlap</label>
+                                <input type="range" id="chunkOverlap" min="0" max="200" value="50" class="w-full">
+                                <div class="flex justify-between text-xs text-purple-400 mt-1">
+                                    <span>0</span>
+                                    <span id="chunkOverlapValue">50</span>
+                                    <span>200</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-white mb-1">Top K Results</label>
+                                <input type="range" id="topK" min="1" max="20" value="5" class="w-full">
+                                <div class="flex justify-between text-xs text-green-400 mt-1">
+                                    <span>1</span>
+                                    <span id="topKValue">5</span>
+                                    <span>20</span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-white mb-1">Temperature</label>
+                                <input type="range" id="temperature" min="0" max="100" value="70" class="w-full">
+                                <div class="flex justify-between text-xs text-pink-400 mt-1">
+                                    <span>0.0</span>
+                                    <span id="temperatureValue">0.7</span>
+                                    <span>1.0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Features -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-purple-300 mb-3 font-mono">🚀 ADVANCED FEATURES</h3>
+                        <div class="space-y-3">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="hybridSearch" class="rounded">
+                                <span class="text-xs text-white">Hybrid Search</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="queryExpansion" class="rounded">
+                                <span class="text-xs text-white">Query Expansion</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="reranking" class="rounded">
+                                <span class="text-xs text-white">Result Reranking</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="streaming" class="rounded" checked>
+                                <span class="text-xs text-white">Streaming Responses</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Export/Import -->
+                    <div class="mb-6">
+                        <h3 class="text-xs font-bold text-green-300 mb-3 font-mono">💾 DATA MANAGEMENT</h3>
+                        <div class="space-y-2">
+                            <button onclick="exportData()" class="w-full btn-neon px-4 py-2 text-white rounded-lg font-bold text-xs">
+                                EXPORT KNOWLEDGE BASE
+                            </button>
+                            <button onclick="importData()" class="w-full glass-card border border-green-400/50 px-4 py-2 text-green-400 rounded-lg font-bold text-xs hover:bg-green-400/10">
+                                IMPORT KNOWLEDGE BASE
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Theme Settings -->
+                    <div>
+                        <h3 class="text-xs font-bold text-orange-300 mb-3 font-mono">🎨 THEME SETTINGS</h3>
+                        <div class="space-y-2">
+                            <button onclick="setTheme('cyber')" class="w-full glass-card border border-cyan-400/50 px-4 py-2 text-cyan-400 rounded-lg font-bold text-xs hover:bg-cyan-400/10">
+                                CYBER THEME
+                            </button>
+                            <button onclick="setTheme('matrix')" class="w-full glass-card border border-green-400/50 px-4 py-2 text-green-400 rounded-lg font-bold text-xs hover:bg-green-400/10">
+                                MATRIX THEME
+                            </button>
+                            <button onclick="setTheme('neon')" class="w-full glass-card border border-pink-400/50 px-4 py-2 text-pink-400 rounded-lg font-bold text-xs hover:bg-pink-400/10">
+                                NEON THEME
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Top Navigation -->
+            <div class="glass-card border-b border-cyan-400/30 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button onclick="toggleSidebar()" class="p-2 glass-card rounded-lg hover:bg-cyan-400/20 transition-colors lg:hidden">
+                            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+                        </button>
+                        <div>
+                            <h2 class="text-lg font-bold text-white title-font">NEURAL INTERFACE</h2>
+                            <p class="text-xs text-cyan-300 font-mono" id="chatStatus">AWAITING DOCUMENT UPLOAD...</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="clearChat()" class="tooltip px-3 py-2 glass-card border border-red-400/50 text-red-400 rounded-lg text-xs font-bold hover:bg-red-400/10 transition-colors" data-tooltip="Clear Chat History">
+                            🗑 CLEAR
+                        </button>
+                        <button onclick="exportChat()" class="tooltip px-3 py-2 glass-card border border-green-400/50 text-green-400 rounded-lg text-xs font-bold hover:bg-green-400/10 transition-colors" data-tooltip="Export Chat">
+                            💾 EXPORT
+                        </button>
+                        <button onclick="openSettings()" class="tooltip px-3 py-2 glass-card border border-purple-400/50 text-purple-400 rounded-lg text-xs font-bold hover:bg-purple-400/10 transition-colors" data-tooltip="Quick Settings">
+                            ⚙ SETTINGS
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
+                <div class="text-center text-cyan-300 py-12">
+                    <div class="relative mb-6">
+                        <svg class="mx-auto h-20 w-20 text-cyan-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="w-24 h-24 rounded-full border-2 border-cyan-400 opacity-30 pulse-ring"></div>
+                        </div>
+                    </div>
+                    <p class="font-mono text-lg">NEURAL INTERFACE READY</p>
+                    <p class="font-mono text-sm text-cyan-400 mt-2">Upload a document or select a sample to begin</p>
+                    
+                    <!-- Neural Network Visualization -->
+                    <div class="mt-8 flex justify-center">
+                        <div class="grid grid-cols-4 gap-4 items-center">
+                            <!-- Input Layer -->
+                            <div class="space-y-2">
+                                <div class="neural-network-node mx-auto"></div>
+                                <div class="neural-network-node mx-auto"></div>
+                                <div class="neural-network-node mx-auto"></div>
+                            </div>
+                            <!-- Hidden Layer 1 -->
+                            <div class="space-y-2">
+                                <div class="neural-network-node mx-auto" style="animation-delay: 0.5s;"></div>
+                                <div class="neural-network-node mx-auto" style="animation-delay: 1s;"></div>
+                                <div class="neural-network-node mx-auto" style="animation-delay: 1.5s;"></div>
+                                <div class="neural-network-node mx-auto" style="animation-delay: 2s;"></div>
+                            </div>
+                            <!-- Hidden Layer 2 -->
+                            <div class="space-y-2">
+                                <div class="neural-network-node mx-auto" style="animation-delay: 0.3s;"></div>
+                                <div class="neural-network-node mx-auto" style="animation-delay: 0.8s;"></div>
+                                <div class="neural-network-node mx-auto" style="animation-delay: 1.3s;"></div>
+                            </div>
+                            <!-- Output Layer -->
+                            <div class="space-y-2">
+                                <div class="neural-network-node mx-auto" style="animation-delay: 1.8s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="glass-card border-t border-cyan-400/30 p-6">
+                <div class="flex space-x-3 mb-4">
+                    <input 
+                        type="text" 
+                        id="questionInput" 
+                        placeholder="Enter neural query..."
+                        class="flex-1 px-4 py-3 bg-black/50 border border-cyan-400/50 rounded-xl text-white placeholder-cyan-400/70 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 font-mono text-sm"
+                        disabled
+                    >
+                    <button onclick="toggleVoiceInput()" id="voiceButton" class="tooltip px-4 py-3 glass-card border border-purple-400/50 text-purple-400 rounded-xl hover:bg-purple-400/10 transition-colors disabled:opacity-50" disabled data-tooltip="Voice Input">
+                        🎤
+                    </button>
+                    <button 
+                        id="sendButton" 
+                        onclick="sendQuestion()" 
+                        class="btn-neon px-8 py-3 text-white rounded-xl font-bold title-font text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        SEND
+                    </button>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button onclick="quickAction('summarize')" class="px-3 py-1 glass-card border border-cyan-400/30 text-cyan-400 rounded-lg text-xs hover:bg-cyan-400/10 transition-colors">
+                        📝 Summarize
+                    </button>
+                    <button onclick="quickAction('explain')" class="px-3 py-1 glass-card border border-purple-400/30 text-purple-400 rounded-lg text-xs hover:bg-purple-400/10 transition-colors">
+                        💡 Explain
+                    </button>
+                    <button onclick="quickAction('examples')" class="px-3 py-1 glass-card border border-green-400/30 text-green-400 rounded-lg text-xs hover:bg-green-400/10 transition-colors">
+                        🔍 Examples
+                    </button>
+                    <button onclick="quickAction('compare')" class="px-3 py-1 glass-card border border-pink-400/30 text-pink-400 rounded-lg text-xs hover:bg-pink-400/10 transition-colors">
+                        ⚖ Compare
+                    </button>
+                </div>
+                
+                <!-- Suggested Questions -->
+                <div id="suggestedQuestions" class="hidden">
+                    <div class="text-xs text-cyan-400 mb-3 font-mono font-bold">💡 NEURAL SUGGESTIONS:</div>
+                    <div class="flex flex-wrap gap-2" id="questionSuggestions">
+                        <!-- Suggestions will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals and Overlays -->
+    <div id="settingsModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="glass-card neon-border rounded-2xl p-6 max-w-md w-full neon-glow">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white title-font">⚙ QUICK SETTINGS</h3>
+                <button onclick="closeSettings()" class="text-cyan-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-white mb-2">Response Style</label>
+                    <select class="w-full bg-black/50 border border-cyan-400/50 rounded-lg px-3 py-2 text-white text-sm">
+                        <option>Detailed & Technical</option>
+                        <option>Concise & Clear</option>
+                        <option>Creative & Engaging</option>
+                        <option>Academic & Formal</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-white mb-2">Language</label>
+                    <select class="w-full bg-black/50 border border-cyan-400/50 rounded-lg px-3 py-2 text-white text-sm">
+                        <option>English</option>
+                        <option>Spanish</option>
+                        <option>French</option>
+                        <option>German</option>
+                        <option>Chinese</option>
+                        <option>Japanese</option>
+                    </select>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-white">Dark Mode</span>
+                    <input type="checkbox" checked class="rounded">
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-white">Sound Effects</span>
+                    <input type="checkbox" class="rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let currentDocument = null;
+        let documentChunks = [];
+        let isProcessing = false;
+        let queryHistory = [];
+        let currentConfig = {
+            llm: 'gpt-4',
+            embedding: 'text-embedding-3-large',
+            vectorDb: 'faiss',
+            chunkSize: 500,
+            chunkOverlap: 50,
+            topK: 5,
+            temperature: 0.7
+        };
+        let sidebarCollapsed = false;
+        let voiceRecognition = null;
+
+        // Enhanced sample documents with more comprehensive content
+        const sampleDocuments = {
+            'ml-guide': {
+                title: 'Machine Learning Guide',
+                content: `# Comprehensive Machine Learning Guide
+
+## Introduction to Machine Learning
+Machine Learning (ML) is a subset of artificial intelligence that enables computers to learn and make decisions from data without being explicitly programmed for every task. It's revolutionizing industries from healthcare to finance, autonomous vehicles to recommendation systems.
+
+## Types of Machine Learning
+
+### Supervised Learning
+Supervised learning involves labeled data and teaches the model using input-output pairs. The algorithm learns from training data that includes both the input features and the correct answers (labels). Common examples include:
+
+*Classification Tasks:*
+- Email spam detection (spam vs. not spam)
+- Image recognition (cat vs. dog)
+- Medical diagnosis (disease vs. healthy)
+- Sentiment analysis (positive vs. negative)
+
+*Regression Tasks:*
+- House price prediction
+- Stock market forecasting
+- Temperature prediction
+- Sales revenue estimation
+
+*Popular Supervised Learning Algorithms:*
+- Linear Regression: Simple yet powerful for continuous predictions
+- Logistic Regression: Excellent for binary classification
+- Decision Trees: Interpretable tree-like models
+- Random Forest: Ensemble of decision trees for improved accuracy
+- Support Vector Machines (SVM): Effective for high-dimensional data
+- Neural Networks: Deep learning for complex patterns
+- Gradient Boosting: XGBoost, LightGBM for competition-winning results
+
+### Unsupervised Learning
+Unsupervised learning deals with unlabeled data and finds hidden patterns or groupings. The algorithm must discover structure in the data without knowing the correct answers.
+
+*Types of Unsupervised Learning:*
+- *Clustering*: Grouping similar data points
+  - K-Means: Partitioning data into k clusters
+  - Hierarchical Clustering: Creating tree-like cluster structures
+  - DBSCAN: Density-based clustering for irregular shapes
+- *Association*: Finding relationships between variables
+  - Market basket analysis (people who buy X also buy Y)
+  - Web usage patterns
+- *Dimensionality Reduction*: Simplifying data while preserving information
+  - Principal Component Analysis (PCA)
+  - t-SNE for visualization
+  - UMAP for modern dimensionality reduction
+
+### Reinforcement Learning
+Reinforcement learning involves an agent learning through interaction with an environment, receiving rewards or penalties for actions. This approach is used in:
+- Game playing (AlphaGo, chess engines)
+- Robotics and autonomous systems
+- Trading algorithms
+- Recommendation systems with user feedback
+
+## Advanced Machine Learning Concepts
+
+### Deep Learning
+Deep learning uses neural networks with multiple layers to learn complex patterns:
+- *Convolutional Neural Networks (CNNs)*: Excellent for image processing
+- *Recurrent Neural Networks (RNNs)*: Great for sequential data
+- *Transformers*: State-of-the-art for natural language processing
+- *Generative Adversarial Networks (GANs)*: Creating synthetic data
+
+### Model Evaluation and Validation
+Proper evaluation is crucial for reliable machine learning:
+- *Cross-validation*: K-fold, stratified, time series splits
+- *Metrics for Classification*: Accuracy, precision, recall, F1-score, AUC-ROC
+- *Metrics for Regression*: MAE, MSE, RMSE, R-squared
+- *Overfitting and Underfitting*: Bias-variance tradeoff
+- *Regularization*: L1, L2, dropout, early stopping
+
+### Feature Engineering
+The art of creating and selecting the right features:
+- *Feature Selection*: Removing irrelevant or redundant features
+- *Feature Creation*: Polynomial features, interaction terms
+- *Feature Scaling*: Normalization, standardization
+- *Handling Categorical Data*: One-hot encoding, label encoding
+- *Time Series Features*: Lag features, rolling statistics
+
+## Comprehensive Outlier Detection and Handling
+
+### Understanding Outliers
+Outliers are data points that significantly differ from other observations in a dataset. They can be:
+- *Univariate*: Extreme values in a single variable
+- *Multivariate*: Unusual combinations across multiple variables
+- *Contextual*: Normal in one context but abnormal in another
+- *Collective*: Individual points are normal, but the collection is anomalous
+
+### Causes of Outliers
+1. *Measurement Errors*: Faulty sensors, human error in data entry
+2. *Data Processing Errors*: Incorrect data transformation or merging
+3. *Natural Variation*: Genuine extreme values in the population
+4. *Sampling Errors*: Non-representative samples
+5. *Experimental Errors*: Issues in data collection methodology
+
+### Detection Methods
+
+#### Visual Methods
+*Boxplot Analysis:*
+- Outliers appear as points beyond the whiskers
+- Whiskers extend to Q1 - 1.5×IQR and Q3 + 1.5×IQR
+- Effective for univariate analysis
+- Can be extended to multiple variables using side-by-side plots
+
+*Scatter Plot Analysis:*
+- Useful for identifying bivariate outliers
+- Points far from the main cluster indicate potential outliers
+- Can reveal relationships between variables
+- 3D scatter plots for three-variable analysis
+
+*Histogram and Density Plots:*
+- Show distribution shape and extreme values
+- Kernel density estimation for smooth distributions
+- Compare with theoretical distributions (normal, log-normal)
+
+#### Statistical Methods
+
+*Z-Score Method:*
+- Formula: z = (x - μ) / σ
+- Points with |z| > 2.5 or 3 are often considered outliers
+- Assumes normal distribution
+- Modified Z-score uses median and MAD for robustness
+
+*Interquartile Range (IQR) Method:*
+- Calculate Q1 (25th percentile) and Q3 (75th percentile)
+- IQR = Q3 - Q1
+- Outliers: values < Q1 - 1.5×IQR or > Q3 + 1.5×IQR
+- More robust than Z-score for non-normal distributions
+
+*Grubbs' Test:*
+- Statistical test for detecting outliers in univariate data
+- Assumes normal distribution
+- Tests one outlier at a time
+- Provides p-values for statistical significance
+
+*Dixon's Q Test:*
+- Alternative to Grubbs' test for small samples
+- Less sensitive to distribution assumptions
+- Good for samples with 3-30 observations
+
+#### Machine Learning Methods
+
+*Isolation Forest:*
+- Isolates anomalies by random partitioning
+- Outliers are easier to isolate (require fewer splits)
+- Works well with high-dimensional data
+- No assumptions about data distribution
+- Contamination parameter controls outlier percentage
+
+*Local Outlier Factor (LOF):*
+- Measures local density deviation
+- Compares density of a point to its neighbors
+- Effective for datasets with varying densities
+- Can detect local outliers in dense regions
+
+*One-Class SVM:*
+- Learns a boundary around normal data
+- Points outside the boundary are outliers
+- Kernel trick allows complex boundaries
+- Good for high-dimensional data
+
+*DBSCAN Clustering:*
+- Density-based clustering algorithm
+- Points not belonging to any cluster are outliers
+- Can find outliers of arbitrary shape
+- Requires tuning of epsilon and min_samples parameters
+
+*Elliptic Envelope:*
+- Assumes data follows multivariate Gaussian distribution
+- Fits ellipse around central data points
+- Points outside ellipse are outliers
+- Works well when assumption is met
+
+### Handling Strategies
+
+#### Keep Them (Retain Outliers)
+*When to Keep:*
+- Outliers represent important phenomena (fraud detection, rare diseases)
+- Domain expertise suggests they're meaningful
+- Small dataset where every point matters
+- Exploratory analysis phase
+
+*Benefits:*
+- Preserves all information
+- Maintains data integrity
+- May reveal important insights
+
+#### Remove Them (Delete Outliers)
+*When to Remove:*
+- Clear measurement or data entry errors
+- Outliers are irrelevant to analysis objective
+- Large dataset where few outliers won't impact results
+- Outliers severely skew model performance
+
+*Considerations:*
+- Document removal process
+- Analyze impact on results
+- Consider bias introduction
+- Maintain removed data for audit trail
+
+#### Transform Data
+*Log Transformation:*
+- Reduces impact of extreme values
+- Effective for right-skewed data
+- Formula: log(x) or log(x + 1) for zeros
+
+*Square Root Transformation:*
+- Milder than log transformation
+- Good for count data
+- Formula: √x
+
+*Box-Cox Transformation:*
+- Finds optimal power transformation
+- Maximizes normality
+- Includes log as special case (λ = 0)
+
+*Yeo-Johnson Transformation:*
+- Extension of Box-Cox for negative values
+- More flexible than Box-Cox
+- Handles zero and negative values
+
+#### Cap or Winsorize
+*Winsorization:*
+- Replace extreme values with percentile values
+- Common: 5th and 95th percentiles
+- Preserves sample size
+- Reduces extreme influence
+
+*Capping:*
+- Set maximum and minimum thresholds
+- Based on domain knowledge or statistical criteria
+- Simple and interpretable
+- May introduce artificial boundaries
+
+#### Imputation Methods
+*Statistical Imputation:*
+- Replace with mean, median, or mode
+- Median more robust for skewed data
+- Mode for categorical outliers
+
+*Model-Based Imputation:*
+- Use regression or machine learning models
+- Predict outlier values based on other features
+- More sophisticated but computationally intensive
+
+*Multiple Imputation:*
+- Create multiple imputed datasets
+- Analyze each separately and combine results
+- Accounts for uncertainty in imputation
+
+### Best Practices for Outlier Handling
+
+1. *Understand Your Data*: Domain knowledge is crucial
+2. *Visualize First*: Always plot your data before deciding
+3. *Document Everything*: Keep track of detection methods and decisions
+4. *Consider Multiple Methods*: Different methods may reveal different outliers
+5. *Validate Results*: Check how outlier treatment affects model performance
+6. *Iterative Process*: Outlier detection may need multiple rounds
+7. *Context Matters*: Same value might be normal in one context, abnormal in another
+
+### Industry-Specific Considerations
+
+*Finance:*
+- Extreme returns may be genuine market events
+- Regulatory requirements for data handling
+- Risk management implications
+
+*Healthcare:*
+- Patient safety considerations
+- Rare conditions vs. measurement errors
+- Ethical implications of data exclusion
+
+*Manufacturing:*
+- Quality control implications
+- Process variation vs. equipment malfunction
+- Cost of false positives/negatives
+
+*Marketing:*
+- Customer behavior extremes
+- Seasonal variations
+- Campaign effectiveness measurement
+
+## Model Deployment and MLOps
+
+### Production Considerations
+- Model versioning and tracking
+- A/B testing frameworks
+- Monitoring and alerting
+- Data drift detection
+- Model retraining pipelines
+
+### Ethical AI and Fairness
+- Bias detection and mitigation
+- Explainable AI (XAI)
+- Privacy-preserving techniques
+- Regulatory compliance (GDPR, CCPA)
+
+## Getting Started with Machine Learning
+
+### Essential Tools and Libraries
+*Python Ecosystem:*
+- *Pandas*: Data manipulation and analysis
+- *NumPy*: Numerical computing
+- *Scikit-learn*: General-purpose ML library
+- *TensorFlow/PyTorch*: Deep learning frameworks
+- *Matplotlib/Seaborn*: Data visualization
+
+*R Ecosystem:*
+- *dplyr*: Data manipulation
+- *ggplot2*: Advanced visualization
+- *caret*: Classification and regression training
+- *randomForest*: Random forest implementation
+
+### Learning Path
+1. *Foundation*: Statistics, linear algebra, programming
+2. *Data Skills*: Data cleaning, exploration, visualization
+3. *Basic Algorithms*: Linear regression, decision trees
+4. *Advanced Topics*: Deep learning, ensemble methods
+5. *Specialization*: NLP, computer vision, time series
+6. *Production*: MLOps, deployment, monitoring
+
+### Common Pitfalls to Avoid
+- Data leakage in feature engineering
+- Overfitting to training data
+- Ignoring data quality issues
+- Not validating assumptions
+- Misinterpreting correlation as causation
+- Inadequate testing and validation
+
+Machine learning is a rapidly evolving field with new techniques and applications emerging constantly. Success requires a combination of technical skills, domain expertise, and careful attention to data quality and model validation.`
+            },
+            'web-dev': {
+                title: 'Web Development Handbook',
+                content: `# Comprehensive Web Development Handbook
+
+## Introduction to Modern Web Development
+Web development has evolved dramatically from simple static HTML pages to complex, interactive applications that power our digital world. Today's web developers work with sophisticated frameworks, cloud services, and cutting-edge technologies to create seamless user experiences across all devices.
+
+## Frontend Development Mastery
+
+### HTML5 - The Foundation
+Modern HTML5 provides semantic structure and rich media capabilities:
+
+*Semantic Elements:*
+- \<header>\, \<nav>\, \<main>\, \<article>\, \<section>\, \<aside>\, \<footer>\
+- Improved accessibility and SEO
+- Better document structure and meaning
+
+*Advanced HTML5 Features:*
+- *Canvas API*: 2D and 3D graphics rendering
+- *Web Storage*: localStorage and sessionStorage
+- *Geolocation API*: Location-aware applications
+- *Web Workers*: Background JavaScript processing
+- *Service Workers*: Offline functionality and caching
+
+*Forms and Input Types:*
+- Email, URL, date, time, number, range inputs
+- Form validation attributes (required, pattern, min, max)
+- Custom validation with JavaScript
+- File upload with drag-and-drop
+
+### CSS3 - Styling and Layout Revolution
+
+*Modern Layout Systems:*
+- *Flexbox*: One-dimensional layouts with flexible containers
+- *CSS Grid*: Two-dimensional layouts with precise control
+- *CSS Subgrid*: Nested grid layouts
+- *Container Queries*: Responsive design based on container size
+
+*Advanced Styling Techniques:*
+- *CSS Variables (Custom Properties)*: Dynamic theming and maintainable code
+- *CSS Animations and Transitions*: Smooth, performant animations
+- *Transform and 3D Effects*: Hardware-accelerated visual effects
+- *CSS Filters*: Image processing effects (blur, brightness, contrast)
+
+*Responsive Design Strategies:*
+- Mobile-first approach
+- Fluid typography with clamp()
+- Responsive images with srcset and picture elements
+- Progressive enhancement principles
+
+*CSS Architecture:*
+- *BEM Methodology*: Block, Element, Modifier naming convention
+- *CSS Modules*: Scoped styling for components
+- *Styled Components*: CSS-in-JS solutions
+- *Utility-First CSS*: Tailwind CSS approach
+
+### JavaScript - The Language of the Web
+
+*Modern JavaScript (ES6+):*
+- *Arrow Functions*: Concise function syntax
+- *Destructuring*: Extract values from arrays and objects
+- *Template Literals*: String interpolation and multiline strings
+- *Modules*: Import/export for code organization
+- *Async/Await*: Cleaner asynchronous code
+- *Classes*: Object-oriented programming syntax
+- *Promises*: Handling asynchronous operations
+
+*DOM Manipulation and Events:*
+- *Query Selectors*: Modern element selection
+- *Event Delegation*: Efficient event handling
+- *Intersection Observer*: Lazy loading and scroll animations
+- *Mutation Observer*: Watching DOM changes
+- *Custom Events*: Component communication
+
+*Advanced JavaScript Concepts:*
+- *Closures and Scope*: Understanding variable access
+- *Prototypal Inheritance*: JavaScript's inheritance model
+- *Event Loop*: Asynchronous execution model
+- *Memory Management*: Avoiding memory leaks
+- *Performance Optimization*: Debouncing, throttling, memoization
+
+### Frontend Frameworks and Libraries
+
+*React Ecosystem:*
+- *Component Architecture*: Reusable UI components
+- *JSX*: JavaScript XML syntax
+- *Hooks*: useState, useEffect, custom hooks
+- *Context API*: State management without props drilling
+- *React Router*: Client-side routing
+- *Next.js*: Full-stack React framework with SSR/SSG
+
+*Vue.js Ecosystem:*
+- *Template Syntax*: Declarative rendering
+- *Composition API*: Modern Vue 3 approach
+- *Vuex/Pinia*: State management solutions
+- *Vue Router*: Official routing library
+- *Nuxt.js*: Universal Vue applications
+
+*Angular Framework:*
+- *TypeScript*: Strongly typed JavaScript
+- *Dependency Injection*: Service architecture
+- *RxJS*: Reactive programming with observables
+- *Angular CLI*: Powerful development tools
+- *Angular Universal*: Server-side rendering
+
+*State Management:*
+- *Redux*: Predictable state container
+- *MobX*: Reactive state management
+- *Zustand*: Lightweight state management
+- *Recoil*: Experimental React state management
+
+## Backend Development Excellence
+
+### Server-Side Technologies
+
+*Node.js Development:*
+- *Express.js*: Minimal web framework
+- *Koa.js*: Next-generation web framework
+- *Fastify*: High-performance web framework
+- *NestJS*: Enterprise-grade Node.js framework
+
+*Python Web Development:*
+- *Django*: Full-featured web framework
+- *Flask*: Lightweight and flexible framework
+- *FastAPI*: Modern, fast web framework for APIs
+- *Pyramid*: Flexible web framework
+
+*Other Backend Languages:*
+- *PHP*: Laravel, Symfony frameworks
+- *Java*: Spring Boot, Spring Framework
+- *C#*: ASP.NET Core, .NET 6+
+- *Go*: Gin, Echo frameworks
+- *Ruby*: Ruby on Rails framework
+- *Rust*: Actix-web,
